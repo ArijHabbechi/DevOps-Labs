@@ -1,0 +1,24 @@
+version: '3'
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb-container
+    ports:
+      - "28000:27017"  # Mapping port 28000 of the host to 27017 of the MongoDB container
+    networks:
+      - app-network
+
+  springboot-app:
+    image: springboot-app  
+    container_name: springboot-app-container
+    ports:
+      - "8081:8081"  # Mapping port 8081 of the host to 8081 of the Spring Boot container
+    depends_on:
+      - mongodb  # Ensures MongoDB is started before the Spring Boot app
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge  # Creating a network for the containers to communicate
+
