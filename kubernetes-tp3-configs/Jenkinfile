@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+    
+    environment {
+        DOCKER_IMAGE = 'arijhabbechi/node-hello:latest'
+    }
+
+    stages {
+        stage('Checkout Git') {
+            steps {
+                echo 'Pulling From Git'
+                git branch: 'main', credentialsId: 'jenkins-personnal-token', url: 'https://github.com/chaimaraachh/KubernetesLab.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker Image'
+                script {
+                    // Construction de l'image Docker à partir du Dockerfile
+                    sh "docker build -t ${DOCKER_IMAGE} ./node-hello"
+                }
+            }
+        }
+        
+        stage('Tag and Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'jenkins-docker-auth', variable: 'DOCKERHUB_TOKEN')]) {
+                        // Tag et push de l'image Docker sur Docker Hub
+                        sh "docker tag ${DOCKER_IMAGE} arijhabbechi/node-hello:${BUILD_NUMBER}"
+                        sh "docker push ${DOCKER_IMAGE}"
+                        sh "docker push arijhabbechi/node-hello:${BUILD_NUMBER}"
+                    }
+                }
+            }
+        }
+
+        stage('Pull Docker Image') {
+            steps {
+                echo 'Running Ansible playbook to pull Docker image'
+                script {
+                    sh 'ansible-playbook -i /home/jenkins/inventory pull_docker_image.yml'
+                }
+            }
+        }
+
+        stage('Deploy to Minikube') {
+            steps {
+                echo 'Running Ansible playbook to deploy application on Minikube'
+                script {
+                    sh 'ansible-playbook -i /home/jenkins/inventory deployment_playbook.yml'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up Docker images'
+            sh 'docker image prune -f'
+        }
+    }
+}
